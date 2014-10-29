@@ -51,6 +51,13 @@ Buffer.TYPED_ARRAY_SUPPORT = (function () {
   }
 })()
 
+var U_SET
+var U_SUBARRAY
+if (Buffer.TYPED_ARRAY_SUPPORT) {
+  U_SET = Uint8Array.prototype.set
+  U_SUBARRAY = Uint8Array.prototype.subarray
+}
+
 /**
  * Class: Buffer
  * =============
@@ -84,7 +91,7 @@ function Buffer (subject, encoding, noZero) {
   } else
     throw new TypeError('must start with number, buffer, array or string')
 
-  if (this.length > kMaxLength)
+  if (length > kMaxLength)
     throw new RangeError('Attempt to allocate Buffer larger than maximum ' +
       'size: 0x' + kMaxLength.toString(16) + ' bytes')
 
@@ -102,7 +109,7 @@ function Buffer (subject, encoding, noZero) {
   var i
   if (Buffer.TYPED_ARRAY_SUPPORT && typeof subject.byteLength === 'number') {
     // Speed optimization -- use set if we're copying from a typed array
-    buf._set(subject)
+    U_SET.call(buf, subject)
   } else if (isArrayish(subject)) {
     // Treat array-ish objects as a byte array
     if (Buffer.isBuffer(subject)) {
@@ -503,7 +510,7 @@ Buffer.prototype.slice = function (start, end) {
     end = start
 
   if (Buffer.TYPED_ARRAY_SUPPORT) {
-    return Buffer._augment(this.subarray(start, end))
+    return Buffer._augment(U_SUBARRAY.call(this, start, end))
   } else {
     var sliceLen = end - start
     var newBuf = new Buffer(sliceLen, undefined, true)
@@ -842,7 +849,11 @@ Buffer.prototype.copy = function (target, target_start, start, end) {
       target[i + target_start] = this[i + start]
     }
   } else {
-    target._set(this.subarray(start, start + len), target_start)
+    U_SET.call(
+      target,
+      U_SUBARRAY.call(this, start, start + len),
+      target_start
+    )
   }
 }
 
@@ -906,11 +917,16 @@ var BP = Buffer.prototype
  * Augment a Uint8Array *instance* (not the Uint8Array class!) with Buffer methods
  */
 Buffer._augment = function (arr) {
-  arr._isBuffer = true
+  var length = arr.length
+  var buffer = arr.buffer
 
-  // save reference to original Uint8Array get/set methods before overwriting
-  arr._get = arr.get
-  arr._set = arr.set
+  arr.constructor = Buffer
+  arr.__proto__ = BP
+
+  arr.length = length
+  arr.buffer = buffer
+
+  arr._isBuffer = true
 
   // deprecated, will be removed in node 0.13+
   arr.get = BP.get
