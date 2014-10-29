@@ -2,6 +2,13 @@ var B = require('../').Buffer
 var test = require('tape')
 if (process.env.OBJECT_IMPL) B.TYPED_ARRAY_SUPPORT = false
 
+test('instanceof', function (t) {
+  var buf = new B(2)
+  t.ok(buf instanceof B)
+  t.notOk(buf instanceof String)
+  t.end()
+})
+
 test('convert to Uint8Array in modern browsers', function (t) {
   if (B.TYPED_ARRAY_SUPPORT) {
     var buf = new B([1, 2])
