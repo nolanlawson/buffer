@@ -622,7 +622,7 @@ Buffer.prototype.compare = function compare (target, start, end, thisStart, this
   return 0
 }
 
-function arrayIndexOf (arr, val, byteOffset, encoding) {
+function arrayIndexOf (arr, val, byteOffset, encoding, lastIndex) {
   var indexSize = 1
   var arrLength = arr.length
   var valLength = val.length
@@ -650,7 +650,8 @@ function arrayIndexOf (arr, val, byteOffset, encoding) {
   }
 
   var foundIndex = -1
-  for (var i = byteOffset; i < arrLength; ++i) {
+
+  function loop (i) {
     if (read(arr, i) === read(val, foundIndex === -1 ? 0 : i - foundIndex)) {
       if (foundIndex === -1) foundIndex = i
       if (i - foundIndex + 1 === valLength) return foundIndex * indexSize
@@ -660,10 +661,22 @@ function arrayIndexOf (arr, val, byteOffset, encoding) {
     }
   }
 
+  var i
+
+  if (lastIndex) {
+    for (i = arrLength - 1; i >= 0; --i) {
+      loop(i)
+    }
+  } else {
+    for (i = byteOffset; i < arrLength; ++i) {
+      loop(i)
+    }
+  }
+
   return -1
 }
 
-Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
+function bufferIndexOf (self, val, byteOffset, encoding, lastIndex) {
   if (typeof byteOffset === 'string') {
     encoding = byteOffset
     byteOffset = 0
@@ -674,11 +687,11 @@ Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
   }
   byteOffset >>= 0
 
-  if (this.length === 0) return -1
-  if (byteOffset >= this.length) return -1
+  if (self.length === 0) return -1
+  if (byteOffset >= self.length) return -1
 
   // Negative offsets start from the end of the buffer
-  if (byteOffset < 0) byteOffset = Math.max(this.length + byteOffset, 0)
+  if (byteOffset < 0) byteOffset = Math.max(self.length + byteOffset, 0)
 
   if (typeof val === 'string') {
     val = Buffer.from(val, encoding)
@@ -689,16 +702,24 @@ Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
     if (val.length === 0) {
       return -1
     }
-    return arrayIndexOf(this, val, byteOffset, encoding)
+    return arrayIndexOf(self, val, byteOffset, encoding, lastIndex)
   }
   if (typeof val === 'number') {
     if (Buffer.TYPED_ARRAY_SUPPORT && Uint8Array.prototype.indexOf === 'function') {
-      return Uint8Array.prototype.indexOf.call(this, val, byteOffset)
+      return Uint8Array.prototype.indexOf.call(self, val, byteOffset)
     }
-    return arrayIndexOf(this, [ val ], byteOffset, encoding)
+    return arrayIndexOf(self, [ val ], byteOffset, encoding, lastIndex)
   }
 
   throw new TypeError('val must be string, number or Buffer')
+}
+
+Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
+  return bufferIndexOf(val, byteOffset, encoding, false)
+}
+
+Buffer.prototype.lastIndexOf = function indexOf (val, byteOffset, encoding) {
+  return bufferIndexOf(val, byteOffset, encoding, true)
 }
 
 Buffer.prototype.includes = function includes (val, byteOffset, encoding) {
